@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}{{ info.nome }} — Luna{% endblock %}
+
+{% block content %}
+<div class="materia-page">
+
+  <!-- Header da matéria -->
+  <div class="materia-header">
+    <a href="{{ url_for('dashboard') }}" class="back-link">← Voltar</a>
+    <div class="materia-title-row">
+      <span class="materia-header-icone">{{ info.icone }}</span>
+      <h1>{{ info.nome }}</h1>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="conteudo">📖 Conteúdo</button>
+    <button class="tab-btn" data-tab="exercicios">✏️ Exercícios</button>
+    <button class="tab-btn" data-tab="luna-tab">🌙 Perguntar à Luna</button>
+  </div>
+
+  <!-- Tab: Conteúdo -->
+  <div class="tab-panel active" id="tab-conteudo">
+    {% if not conteudo.topicos %}
+    <div class="empty-state">
+      <span class="empty-state-icon">📘</span>
+      <h3>Seu espaço para {{ info.nome }}</h3>
+      <p>Esta matéria foi adicionada por você. Pergunte à Luna para explorar o assunto ou registre suas avaliações em Minhas matérias.</p>
+      <a class="btn-luna" href="{{ url_for('notas') }}">Ver minhas matérias</a>
+    </div>
+    {% endif %}
+    {% for topico in conteudo.topicos %}
+    <div class="topico-card">
+      <h3 class="topico-titulo">{{ topico.titulo }}</h3>
+      <p class="topico-texto">{{ topico.texto }}</p>
+      <div class="topico-exemplo">
+        <span class="exemplo-label">💡 Exemplo real</span>
+        <p>{{ topico.exemplo }}</p>
+      </div>
+      {% if topico.formula %}
+      <div class="topico-formula">
+        <code>{{ topico.formula }}</code>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Tab: Exercícios -->
+  <div class="tab-panel" id="tab-exercicios" style="display:none">
+    <p class="exercicios-intro">Teste seus conhecimentos! Tente responder antes de ver a resposta.</p>
+    {% if not conteudo.exercicios %}
+    <p class="empty-subject">Ainda não há exercícios preparados para esta matéria. Você pode pedir um exercício à Luna.</p>
+    {% endif %}
+    {% for ex in conteudo.exercicios %}
+    <div class="exercicio-card">
+      <div class="exercicio-num">Questão {{ loop.index }}</div>
+      <p class="exercicio-pergunta">{{ ex.pergunta }}</p>
+      <button class="btn-revelar" onclick="revelarResposta(this)">Ver resposta</button>
+      <div class="exercicio-resposta" style="display:none">
+        <span class="resp-label">✅ Resposta:</span>
+        <p>{{ ex.resposta }}</p>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Tab: Luna -->
+  <div class="tab-panel" id="tab-luna-tab" style="display:none">
+    <div class="mini-chat">
+      <div class="mini-chat-header">
+        <div class="luna-avatar-sm">L</div>
+        <div>
+          <strong>Luna</strong>
+          <p>Assistente de {{ info.nome }}</p>
+        </div>
+      </div>
+      <div class="mini-chat-msgs" id="mini-msgs">
+        <div class="msg-bubble luna">
+          <div class="msg-text">Olá! Estou aqui pra te ajudar com {{ info.nome }}. Pode me perguntar qualquer coisa sobre essa matéria! 😊</div>
+        </div>
+      </div>
+      <div class="mini-chat-input">
+        <input type="text" id="mini-input" placeholder="Sua dúvida sobre {{ info.nome }}..." 
+               onkeypress="if(event.key==='Enter') enviarMiniChat()">
+        <button onclick="enviarMiniChat()">↑</button>
+      </div>
+      {% if ia_ativa %}
+      <div class="chat-ia-aviso">As mensagens são enviadas ao DeepSeek. Evite compartilhar dados pessoais.</div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const MATERIA_ATUAL = "{{ materia }}";
+</script>
+{% endblock %}

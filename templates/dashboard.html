@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Início — Luna{% endblock %}
+
+{% block content %}
+<div class="dashboard page-enter">
+  <section class="dash-header">
+    <div>
+      <span class="eyebrow">SEU ESPAÇO DE ESTUDOS</span>
+      <h1 class="dash-greeting">Oi, {{ aluno.nome.split()[0] }}. Que bom ter você aqui.</h1>
+      <p class="dash-serie">{{ aluno.serie }} · Um passo de cada vez, no seu ritmo.</p>
+    </div>
+    <a class="quiet-link" href="{{ url_for('perfil') }}">Ajustar meu perfil →</a>
+  </section>
+
+  <section class="welcome-panel">
+    <div class="welcome-copy">
+      <span class="insight-eyebrow">UM LUGAR SEU, SEM PRESSA</span>
+      <h2>Seu progresso começa com o que você escolher registrar.</h2>
+      <p>As notas abaixo são somente as que você adicionou. Nada é estimado ou preenchido por padrão.</p>
+      <a class="btn-luna" href="{{ url_for('notas') }}">Organizar minhas matérias</a>
+    </div>
+    <div class="welcome-mark" aria-hidden="true">✦</div>
+  </section>
+
+  <section class="dash-section personal-summary">
+    <div class="summary-card">
+      <span class="summary-icon">✎</span>
+      <span class="summary-value">{{ materias|length }}</span>
+      <span class="summary-label">matérias cadastradas</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-icon">◎</span>
+      <span class="summary-value">{{ total_notas }}</span>
+      <span class="summary-label">notas registradas por você</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-icon">♡</span>
+      <span class="summary-value">{% if media_geral is not none %}{{ "%.1f"|format(media_geral) }}{% else %}—{% endif %}</span>
+      <span class="summary-label">média das notas cadastradas</span>
+    </div>
+  </section>
+
+  <section class="dash-section">
+    <div class="section-heading-row">
+      <div>
+        <span class="eyebrow">DO SEU JEITO</span>
+        <h2 class="section-title">Minhas matérias</h2>
+      </div>
+      <a class="quiet-link" href="{{ url_for('notas') }}">Adicionar ou editar →</a>
+    </div>
+    {% if materias %}
+    <div class="materias-grid">
+      {% for materia in materias %}
+      <a href="{{ url_for('materia', nome_materia=materia.slug) }}" class="materia-card" style="--card-order: {{ loop.index0 }}">
+        <span class="materia-icone">{{ materia.icone }}</span>
+        <span class="materia-nome">{{ materia.nome }}</span>
+        <div class="materia-nota-row">
+          <span class="materia-nota-label">{% if materia.quantidade %}Média das suas notas{% else %}Seu espaço de estudo{% endif %}</span>
+          <span class="materia-nota-valor">{% if materia.media is not none %}{{ "%.1f"|format(materia.media) }}{% else %}—{% endif %}</span>
+        </div>
+        <div class="progress-bar-track">
+          {% if materia.media is not none %}
+          <div class="progress-bar-fill" style="width: {{ (materia.media / 10 * 100)|int }}%"></div>
+          {% else %}
+          <div class="progress-bar-fill progress-empty"></div>
+          {% endif %}
+        </div>
+        <span class="materia-status">{% if materia.quantidade %}{{ materia.quantidade }} avaliação(ões) registrada(s){% else %}Nenhuma nota cadastrada ainda{% endif %}</span>
+      </a>
+      {% endfor %}
+      <a href="{{ url_for('notas') }}" class="materia-card add-materia-card">
+        <span class="materia-icone">＋</span>
+        <span class="materia-nome">Adicionar matéria</span>
+        <span class="materia-status">Você escolhe o que acompanhar.</span>
+      </a>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <span class="empty-state-icon">✦</span>
+      <h3>Vamos começar pelo que importa para você?</h3>
+      <p>Adicione uma matéria e registre suas próprias avaliações quando quiser.</p>
+      <a class="btn-luna" href="{{ url_for('notas') }}">Adicionar minha primeira matéria</a>
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="dash-section">
+    <div class="luna-promo">
+      <div class="luna-promo-avatar">L</div>
+      <div class="luna-promo-text">
+        <strong>Uma dúvida de cada vez.</strong>
+        <p>A Luna pode ajudar a entender um assunto, revisar uma ideia ou pensar em um próximo passo.</p>
+      </div>
+      <a href="{{ url_for('chat') }}" class="btn-luna">Conversar com a Luna →</a>
+    </div>
+  </section>
+</div>
+{% endblock %}

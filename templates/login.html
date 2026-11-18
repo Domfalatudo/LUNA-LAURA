@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Luna — Entrar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="login-page">
+
+  <div class="login-container">
+    <div class="login-brand">
+      <div class="login-logo">L</div>
+      <h1 class="login-title">Luna</h1>
+      <p class="login-subtitle">Sua assistente de estudos inteligente</p>
+    </div>
+
+    <div class="login-tabs">
+      <button class="tab-btn {% if aba != 'cadastrar' %}active{% endif %}" data-tab="entrar">Entrar</button>
+      <button class="tab-btn {% if aba == 'cadastrar' %}active{% endif %}" data-tab="cadastrar">Criar conta</button>
+    </div>
+
+    {% if erro %}
+    <div class="alert-error">{{ erro }}</div>
+    {% endif %}
+    {% if conta_excluida %}
+    <div class="alert-success">Sua conta e seus dados foram excluídos.</div>
+    {% endif %}
+
+    <!-- Tab Entrar -->
+    <form method="POST" class="login-form tab-panel {% if aba != 'cadastrar' %}active{% endif %}" id="tab-entrar" {% if aba == 'cadastrar' %}style="display:none"{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="acao" value="entrar">
+      <div class="form-group">
+        <label>Nome completo</label>
+        <input type="text" name="nome" placeholder="Ex: Maria Silva" required autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Série</label>
+        <select name="serie">
+          <option value="">Selecione...</option>
+          <option>6º ano – Fundamental</option>
+          <option>7º ano – Fundamental</option>
+          <option>8º ano – Fundamental</option>
+          <option>9º ano – Fundamental</option>
+          <option>1º ano – Ensino Médio</option>
+          <option>2º ano – Ensino Médio</option>
+          <option>3º ano – Ensino Médio</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Senha</label>
+        <input type="password" name="senha" placeholder="Sua senha" required>
+      </div>
+      <button type="submit" class="btn-primary">Entrar</button>
+    </form>
+
+    <!-- Tab Cadastrar -->
+    <form method="POST" class="login-form tab-panel {% if aba == 'cadastrar' %}active{% endif %}" id="tab-cadastrar" {% if aba != 'cadastrar' %}style="display:none"{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="acao" value="cadastrar">
+      <div class="form-group">
+        <label>Nome completo</label>
+        <input type="text" name="nome" placeholder="Ex: Maria Silva" required autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Série</label>
+        <select name="serie" required>
+          <option value="">Selecione sua série</option>
+          <option>6º ano – Fundamental</option>
+          <option>7º ano – Fundamental</option>
+          <option>8º ano – Fundamental</option>
+          <option>9º ano – Fundamental</option>
+          <option>1º ano – Ensino Médio</option>
+          <option>2º ano – Ensino Médio</option>
+          <option>3º ano – Ensino Médio</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Crie uma senha</label>
+        <input type="password" name="senha" placeholder="Mínimo 8 caracteres" minlength="8" required>
+      </div>
+      <button type="submit" class="btn-primary">Criar conta</button>
+    </form>
+
+    <p class="login-footer">🌙 Luna aprende com você, todo dia.</p>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

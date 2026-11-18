@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Meu perfil — Luna{% endblock %}
+
+{% block content %}
+<div class="settings-page page-enter">
+  <header class="page-heading">
+    <span class="eyebrow">SEU ESPAÇO, SUAS ESCOLHAS</span>
+    <h1>Meu perfil</h1>
+    <p>Cuide dos seus dados e da sua conta com tranquilidade.</p>
+  </header>
+
+  {% if erro %}<div class="alert-error" role="alert">{{ erro }}</div>{% endif %}
+  {% if sucesso %}<div class="alert-success" role="status">{{ sucesso }}</div>{% endif %}
+
+  <section class="settings-card">
+    <span class="eyebrow">DADOS PESSOAIS</span>
+    <h2>Como podemos te chamar?</h2>
+    <form method="post" class="settings-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="acao" value="atualizar_perfil">
+      <div class="form-group">
+        <label for="perfil-nome">Nome</label>
+        <input id="perfil-nome" name="nome" value="{{ aluno.nome }}" maxlength="80" required>
+      </div>
+      <div class="form-group">
+        <label for="perfil-serie">Série ou etapa</label>
+        <input id="perfil-serie" name="serie" value="{{ aluno.serie }}" maxlength="60" required>
+      </div>
+      <button class="btn-primary" type="submit">Salvar meus dados</button>
+    </form>
+  </section>
+
+  <section class="settings-card">
+    <span class="eyebrow">SEGURANÇA</span>
+    <h2>Alterar senha</h2>
+    <p>Sua senha é armazenada de forma protegida, não em texto legível.</p>
+    <form method="post" class="settings-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="acao" value="alterar_senha">
+      <div class="form-group">
+        <label for="senha-atual">Senha atual</label>
+        <input id="senha-atual" name="senha_atual" type="password" autocomplete="current-password" required>
+      </div>
+      <div class="form-group">
+        <label for="senha-nova">Nova senha (mínimo 8 caracteres)</label>
+        <input id="senha-nova" name="senha_nova" type="password" minlength="8" autocomplete="new-password" required>
+      </div>
+      <div class="form-group">
+        <label for="confirmar-senha">Confirmar nova senha</label>
+        <input id="confirmar-senha" name="confirmar_senha" type="password" minlength="8" autocomplete="new-password" required>
+      </div>
+      <button class="btn-primary" type="submit">Atualizar senha</button>
+    </form>
+  </section>
+
+  <section class="settings-card danger-zone">
+    <span class="eyebrow">ZONA DE CUIDADO</span>
+    <h2>Excluir minha conta</h2>
+    <p>Isso apaga permanentemente seu perfil, suas matérias, notas e histórico de estudo. Não é possível desfazer.</p>
+    <form method="post" class="settings-form" onsubmit="return confirm('Tem certeza? Sua conta e seus dados serão apagados permanentemente.');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="acao" value="excluir_conta">
+      <div class="form-group">
+        <label for="senha-exclusao">Confirme sua senha</label>
+        <input id="senha-exclusao" name="senha_atual" type="password" autocomplete="current-password" required>
+      </div>
+      <div class="form-group">
+        <label for="confirmacao-exclusao">Digite EXCLUIR para confirmar</label>
+        <input id="confirmacao-exclusao" name="confirmacao" autocomplete="off" required>
+      </div>
+      <button class="btn-danger" type="submit">Excluir minha conta</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

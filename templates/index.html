@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Luna — Aprender no seu ritmo{% endblock %}
+{% block body_class %}landing-page{% endblock %}
+
+{% block navbar %}
+<header class="landing-nav">
+  <a class="landing-brand" href="{{ url_for('index') }}" aria-label="Luna, início">
+    <span class="landing-brand-mark">L</span>
+    <span>Luna</span>
+  </a>
+  <nav class="landing-nav-links" aria-label="Navegação principal">
+    <a href="#como-funciona">Como funciona</a>
+    <a href="#aprendizado">Aprendizado</a>
+  </nav>
+  <div class="landing-nav-actions">
+    <a class="landing-login-link" href="{{ url_for('login') }}">Entrar</a>
+    <a class="landing-nav-cta" href="{{ url_for('login', acao='cadastrar') }}">Criar conta <span aria-hidden="true">↗</span></a>
+  </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="landing-shell">
+  <section class="landing-hero">
+    <div class="landing-hero-copy">
+      <div class="landing-eyebrow"><span class="landing-eyebrow-dot"></span> SUA PARCEIRA DE ESTUDOS</div>
+      <h1>Aprender fica mais leve quando <span>faz sentido.</span></h1>
+      <p class="landing-intro">Tire dúvidas, pratique com exemplos do dia a dia e descubra o próximo passo para avançar nos estudos — no seu ritmo.</p>
+      <div class="landing-hero-actions">
+        <a class="landing-primary-button" href="{{ url_for('login', acao='cadastrar') }}">Começar a estudar <span aria-hidden="true">→</span></a>
+        <a class="landing-text-link" href="#como-funciona">Conheça a Luna <span aria-hidden="true">↓</span></a>
+      </div>
+      <div class="landing-proof">
+        <span class="landing-proof-stars" aria-hidden="true">✳</span>
+        <span>Explicações simples. Progresso de verdade.</span>
+      </div>
+    </div>
+
+    <div class="landing-preview" aria-label="Prévia do espaço de estudos da Luna">
+      <div class="preview-topbar">
+        <div class="preview-brand"><span class="preview-brand-mark">L</span> Luna <span class="preview-online"><i></i> pronta para ajudar</span></div>
+        <span class="preview-menu" aria-hidden="true">···</span>
+      </div>
+      <div class="preview-content">
+        <span class="preview-date">SEU ESPAÇO DE APRENDIZADO</span>
+        <h2>Oi, estudante<span>.</span></h2>
+        <p>Qual assunto vamos descomplicar hoje?</p>
+        <div class="preview-subjects">
+          <span>Matemática <b>↗</b></span>
+          <span>Português <b>↗</b></span>
+          <span>Ciências <b>↗</b></span>
+          <span>+ 3 matérias <b>↗</b></span>
+        </div>
+        <div class="preview-message">
+          <div class="preview-avatar">L</div>
+          <div><small>LUNA · ASSISTENTE DE ESTUDOS</small><p>Vamos por partes. Posso explicar de outro jeito e usar um exemplo do cotidiano.</p></div>
+        </div>
+        <div class="preview-input"><span>Escreva sua dúvida...</span><b aria-hidden="true">↑</b></div>
+      </div>
+      <div class="preview-foot"><span>●</span> Uma pergunta de cada vez. Sem pressão.</div>
+      <div class="preview-note">UMA ROTINA DE ESTUDOS<br><strong>DO SEU JEITO.</strong></div>
+    </div>
+  </section>
+
+  <section class="landing-meta" aria-label="Recursos da plataforma">
+    <span>FEITA PARA APRENDER</span><i></i>
+    <span>6 MATÉRIAS</span><i></i>
+    <span>EXERCÍCIOS PRÁTICOS</span><i></i>
+    <span>ACOMPANHAMENTO INTELIGENTE</span>
+  </section>
+
+  <section class="landing-section" id="como-funciona">
+    <div class="landing-section-heading">
+      <span class="landing-kicker">UM JEITO MAIS SIMPLES</span>
+      <h2>Estudar não precisa ser complicado.</h2>
+      <p>A Luna transforma dúvidas em próximos passos claros. Você escolhe o que precisa e começa de onde está.</p>
+    </div>
+    <div class="landing-feature-grid">
+      <article class="landing-feature">
+        <span class="feature-number">01 / CONVERSE</span>
+        <div class="feature-icon feature-icon-chat" aria-hidden="true">↗</div>
+        <h3>Pergunte sem receio.</h3>
+        <p>Converse com a Luna sobre as matérias e receba explicações em linguagem simples, com exemplos próximos da sua realidade.</p>
+      </article>
+      <article class="landing-feature">
+        <span class="feature-number">02 / PRATIQUE</span>
+        <div class="feature-icon feature-icon-practice" aria-hidden="true">✳</div>
+        <h3>Aprenda fazendo.</h3>
+        <p>Explore conteúdos, tente exercícios e revele as respostas depois de pensar. O seu ritmo vem primeiro.</p>
+      </article>
+      <article class="landing-feature">
+        <span class="feature-number">03 / ACOMPANHE</span>
+        <div class="feature-icon feature-icon-progress" aria-hidden="true">↗</div>
+        <h3>Enxergue seu progresso.</h3>
+        <p>Acompanhe notas e frequência em um só lugar. Uma estimativa baseada em K-NN ajuda a identificar onde vale focar.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="landing-ai" id="aprendizado">
+    <div class="landing-ai-mark" aria-hidden="true">L<span>·</span></div>
+    <div class="landing-ai-copy">
+      <span class="landing-kicker">TECNOLOGIA COM PROPÓSITO</span>
+      <h2>Inteligência que orienta.<br>Você no centro.</h2>
+      <p>O projeto usa K-NN para estimar o desempenho a partir de notas, frequência e horas de estudo, comparando esses dados com exemplos escolares. É um sinal para orientar os estudos — não um diagnóstico nem um rótulo.</p>
+    </div>
+    <div class="landing-ai-aside">
+      <span class="ai-aside-line"></span>
+      <p>A tecnologia ajuda a perceber caminhos. O aprendizado continua sendo seu.</p>
+      <a href="{{ url_for('login', acao='cadastrar') }}">Encontre seu próximo passo <span aria-hidden="true">→</span></a>
+    </div>
+  </section>
+
+  <section class="landing-bottom-cta">
+    <span class="landing-kicker">TODO GRANDE APRENDIZADO COMEÇA COM UMA PERGUNTA</span>
+    <h2>Qual vai ser a sua?</h2>
+    <a class="landing-primary-button" href="{{ url_for('login', acao='cadastrar') }}">Estudar com a Luna <span aria-hidden="true">→</span></a>
+  </section>
+
+  <footer class="landing-footer">
+    <a class="landing-brand" href="{{ url_for('index') }}"><span class="landing-brand-mark">L</span><span>Luna</span></a>
+    <span>Uma parceira para a sua jornada de estudos.</span>
+    <a href="{{ url_for('login') }}">Acessar minha conta ↗</a>
+  </footer>
+</div>
+{% endblock %}
+
+{% block fab %}{% endblock %}
