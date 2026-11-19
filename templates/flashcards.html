@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Flashcards — Luna{% endblock %}
+
+{% block content %}
+<div class="study-library page-enter">
+  <header class="page-heading">
+    <span class="eyebrow">REVISÃO NO SEU RITMO</span>
+    <h1>Flashcards</h1>
+    <p>Transforme um assunto em cartões de pergunta e resposta para revisar um pouco por dia.</p>
+  </header>
+
+  {% if erro %}<div class="alert-error" role="alert">{{ erro }}</div>{% endif %}
+
+  <section class="study-builder">
+    <div class="study-builder-copy">
+      <span class="builder-icon">◈</span>
+      <div>
+        <h2>Criar flashcards</h2>
+        <p>A Luna organiza os conceitos em cartões curtos e práticos.</p>
+      </div>
+    </div>
+    {% if materias %}
+    <form method="post" class="study-builder-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Matéria
+        <select name="materia" required>
+          {% for materia in materias %}
+          <option value="{{ materia.slug }}">{{ materia.nome }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Assunto
+        <input name="assunto" maxlength="120" placeholder="Ex.: leis de Newton" required>
+      </label>
+      <label>Cartões
+        <select name="quantidade">
+          <option value="5">5</option>
+          <option value="8" selected>8</option>
+          <option value="12">12</option>
+          <option value="20">20</option>
+        </select>
+      </label>
+      <button class="btn-primary" type="submit">Criar cartões <span aria-hidden="true">→</span></button>
+    </form>
+    {% else %}
+    <p class="empty-subject">Cadastre uma matéria antes de criar seus flashcards.</p>
+    <a class="quiet-link" href="{{ url_for('notas') }}">Adicionar matéria →</a>
+    {% endif %}
+  </section>
+
+  <section class="library-section">
+    <div class="section-heading-row">
+      <div><span class="eyebrow">SUA BIBLIOTECA</span><h2 class="section-title">Conjuntos salvos</h2></div>
+      <span class="library-count">{{ decks|length }} itens</span>
+    </div>
+    {% if decks %}
+    <div class="resource-grid">
+      {% for deck in decks %}
+      <a class="resource-card" href="{{ url_for('flashcards_detail', deck_id=deck.id) }}">
+        <span class="resource-card-icon">◈</span>
+        <span class="resource-tag">{{ deck.materia }}</span>
+        <strong>{{ deck.titulo }}</strong>
+        <span class="resource-meta">{{ deck.cartoes|length }} cartões · {{ deck.assunto }}</span>
+        <span class="resource-open">Revisar cartões →</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <span class="empty-state-icon">◈</span>
+      <h2>Monte seu primeiro conjunto</h2>
+      <p>Escolha um assunto e a Luna prepara os cartões de revisão.</p>
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

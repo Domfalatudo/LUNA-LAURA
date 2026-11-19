@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ deck.titulo }} — Luna{% endblock %}
+
+{% block content %}
+<div class="study-library page-enter">
+  <a class="back-link" href="{{ url_for('flashcards') }}">← Biblioteca de flashcards</a>
+  <header class="page-heading">
+    <span class="eyebrow">{{ deck.materia }} · {{ deck.assunto }}</span>
+    <h1>{{ deck.titulo }}</h1>
+    <p>Leia a frente, tente lembrar e vire o cartão para conferir.</p>
+  </header>
+
+  {% if deck.cartoes %}
+  <section class="flashcard-study" id="flashcard-study">
+    <div class="flashcard-progress"><span id="flashcard-position">1</span> / {{ deck.cartoes|length }}</div>
+    {% for cartao in deck.cartoes %}
+    <article class="flashcard-face {% if not loop.first %}is-hidden{% endif %}" data-card-index="{{ loop.index0 }}">
+      <span class="flashcard-side-label">PERGUNTA</span>
+      <div class="flashcard-copy" data-markdown>{{ cartao.frente }}</div>
+      <div class="flashcard-answer" hidden>
+        <span class="flashcard-side-label">RESPOSTA</span>
+        <div class="flashcard-copy" data-markdown>{{ cartao.verso }}</div>
+      </div>
+    </article>
+    {% endfor %}
+    <div class="flashcard-controls">
+      <button type="button" class="btn-secondary" id="flashcard-prev" disabled>← Anterior</button>
+      <button type="button" class="btn-primary" id="flashcard-flip">Mostrar resposta</button>
+      <button type="button" class="btn-secondary" id="flashcard-next">Próximo →</button>
+    </div>
+  </section>
+  {% endif %}
+
+  <form method="post" class="resource-delete-form" onsubmit="return confirm('Excluir este conjunto de flashcards?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="text-danger" type="submit">Excluir conjunto</button>
+  </form>
+</div>
+{% endblock %}

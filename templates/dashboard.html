@@ -38,6 +38,70 @@
       <span class="summary-value">{% if media_geral is not none %}{{ "%.1f"|format(media_geral) }}{% else %}—{% endif %}</span>
       <span class="summary-label">média das notas cadastradas</span>
     </div>
+    <a class="summary-card summary-link" href="{{ url_for('quizzes') }}">
+      <span class="summary-icon">✧</span>
+      <span class="summary-value">{{ quizzes_count }}</span>
+      <span class="summary-label">quizzes salvos</span>
+    </a>
+    <a class="summary-card summary-link" href="{{ url_for('flashcards') }}">
+      <span class="summary-icon">◈</span>
+      <span class="summary-value">{{ flashcards_count }}</span>
+      <span class="summary-label">conjuntos de revisão</span>
+    </a>
+  </section>
+
+  {% with mensagens = get_flashed_messages(with_categories=true) %}
+    {% for categoria, mensagem in mensagens %}
+    <div class="{% if categoria == 'error' %}alert-error{% else %}alert-success{% endif %}" role="status">{{ mensagem }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <section class="study-rhythm">
+    <div class="rhythm-mark" aria-hidden="true">◷</div>
+    <div class="rhythm-copy">
+      <span class="eyebrow">SEU RITMO, SEM PRESSA</span>
+      <h2>{{ preferencias.meta_diaria }} minutos por dia já contam.</h2>
+      <p>Hoje: {{ minutos_hoje }} de {{ preferencias.meta_diaria }} minutos estudados.</p>
+      <div class="goal-progress-track" role="progressbar" aria-valuenow="{{ progresso_meta }}" aria-valuemin="0" aria-valuemax="100">
+        <span style="width: {{ progresso_meta }}%"></span>
+      </div>
+    </div>
+    <form method="post" class="study-log-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="acao" value="registrar_sessao_estudo">
+      <label class="sr-only" for="study-minutes">Minutos estudados</label>
+      <select id="study-minutes" name="minutos">
+        <option value="15">15 min</option>
+        <option value="25" selected>25 min</option>
+        <option value="30">30 min</option>
+        <option value="45">45 min</option>
+        <option value="60">60 min</option>
+      </select>
+      <label class="sr-only" for="study-subject">O que estudou?</label>
+      <input id="study-subject" name="assunto" maxlength="80" placeholder="O que estudou?">
+      <button type="submit" class="btn-primary">Registrar sessão</button>
+    </form>
+  </section>
+
+  <section class="quick-study-grid" aria-label="Atalhos de estudo">
+    <a href="{{ url_for('chat') }}" class="quick-study-card">
+      <span class="quick-study-icon">✦</span>
+      <strong>Pergunte à Luna</strong>
+      <span>Entenda uma matéria ou registre uma nota por conversa.</span>
+      <span class="resource-open">Abrir conversa →</span>
+    </a>
+    <a href="{{ url_for('quizzes') }}" class="quick-study-card">
+      <span class="quick-study-icon">✧</span>
+      <strong>Pratique com quizzes</strong>
+      <span>Gere questões e acompanhe seu resultado.</span>
+      <span class="resource-open">Ver quizzes →</span>
+    </a>
+    <a href="{{ url_for('flashcards') }}" class="quick-study-card">
+      <span class="quick-study-icon">◈</span>
+      <strong>Revise com flashcards</strong>
+      <span>Relembre conceitos em cartões curtos.</span>
+      <span class="resource-open">Revisar cartões →</span>
+    </a>
   </section>
 
   <section class="dash-section">

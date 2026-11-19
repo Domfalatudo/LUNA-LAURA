@@ -14,10 +14,15 @@ Sistema web educacional completo com:
 - 🧭 **Navegação e animações** — acesso rápido às páginas, com suporte a preferência por movimento reduzido
 - 🔐 **Login individual** — cada aluno tem sua conta com série e histórico
 - 📚 **6 matérias** — conteúdo, exercícios e chat contextual por matéria
+- 💬 **Histórico de conversas** — salvo por conta, com opção de criar, limpar e excluir conversas
+- 📝 **Ações pela Luna** — registre/edite notas e organize matérias pedindo no chat
+- ✧ **Quizzes e flashcards** — materiais gerados por IA e guardados numa biblioteca pessoal
+- ◷ **Rotina diária** — registre sessões, acompanhe sua meta e personalize as respostas da Luna
+- ∑ **Fórmulas legíveis** — respostas com Markdown e equações renderizadas no chat
 - 🤖 **IA de classificação** — K-NN implementado do zero para prever desempenho
 - 🎨 **Design minimalista** — interface preto e branco, limpa e responsiva
 
-> O classificador K-NN continua disponível separadamente no terminal para fins didáticos e usa o conjunto de exemplos `dados/alunos.csv`; ele não é mostrado como uma avaliação pessoal no dashboard. A Luna pode responder usando o DeepSeek pela API ou, se não houver chave configurada, seu modo offline baseado em regras.
+> O classificador K-NN continua disponível separadamente no terminal para fins didáticos e usa o conjunto de exemplos `dados/alunos.csv`; ele não é mostrado como uma avaliação pessoal no dashboard. A Luna pode responder usando a Groq pela API ou, se não houver chave configurada, seu modo offline baseado em regras.
 
 ---
 
@@ -31,15 +36,15 @@ Sistema web educacional completo com:
 
 Abra a pasta do projeto no VS Code e pressione **F5**. Escolha **Luna (Flask)** para iniciar o site ou **IA Escolar (terminal)** para executar o classificador. O projeto seleciona o ambiente Python `.venv` automaticamente.
 
-Para ativar a IA do DeepSeek e manter as chaves locais no arquivo `.env`:
+Para ativar a IA da Groq e manter as chaves locais no arquivo `.env`:
 
-1. Crie uma chave na plataforma oficial do DeepSeek.
+1. Crie uma chave na plataforma oficial da Groq.
 2. Copie `.env.example` para `.env` na pasta do projeto.
-3. Substitua `cole_sua_chave_aqui` pela chave do DeepSeek e defina `FLASK_SECRET_KEY`. Para gerar esta última, execute `.venv\Scripts\python.exe -c "import secrets; print(secrets.token_hex(32))"` e cole o resultado.
+3. Substitua `cole_sua_chave_aqui` por uma chave da Groq e defina `FLASK_SECRET_KEY`. Para gerar esta última, execute `.venv\Scripts\python.exe -c "import secrets; print(secrets.token_hex(32))"` e cole o resultado.
 4. O `.env` é ignorado pelo Git; não compartilhe nem publique esse arquivo.
-5. Reinicie o servidor. O chat mostrará **IA DeepSeek** quando a chave estiver configurada. Sem chave, continua funcionando no modo offline.
+5. Reinicie o servidor. O chat mostrará **Groq conectada** quando a chave estiver configurada. Sem chave, continua funcionando no modo offline.
 
-O uso da API depende dos créditos, limites e preços vigentes na conta DeepSeek; não há garantia de uso gratuito. As mensagens do chat são enviadas ao serviço para gerar respostas, então não envie dados pessoais. Se a API falhar, a Luna informa o erro e não troca silenciosamente para uma resposta offline.
+O uso da API depende dos limites e preços vigentes na conta Groq; não há garantia de uso gratuito. As mensagens do chat são enviadas ao serviço para gerar respostas, então não envie dados pessoais. Se a API falhar, a Luna informa o erro e não troca silenciosamente para uma resposta offline.
 
 ### Pelo terminal
 
@@ -70,16 +75,16 @@ O projeto usa Flask e a Vercel detecta automaticamente o `app` definido em `app.
 Configure estas variáveis em **Project Settings → Environment Variables**:
 
 - `FLASK_SECRET_KEY`: segredo aleatório e exclusivo para as sessões de produção.
-- `DEEPSEEK_API_KEY`: chave da API, se quiser ativar o DeepSeek.
-- `DEEPSEEK_MODEL`: opcional; se omitida, usa `deepseek-flash`.
+- `GROQ_API_KEY`: chave da API, se quiser ativar a Groq.
+- `GROQ_MODEL`: opcional; se omitida, usa `openai/gpt-oss-20b`.
 
 Não publique o arquivo `.env`. O CSS e o JavaScript são servidos a partir de `public/` pela Vercel.
 
-**Atenção: a versão atual usa armazenamento temporário em `/tmp` na Vercel.** O cadastro e as notas podem desaparecer entre execuções ou instâncias; isso serve somente para demonstração e não é adequado para dados reais. Para uso permanente, substitua `dados/usuarios.json` por um banco de dados persistente antes de publicar para usuários reais.
+**Atenção: a versão atual usa armazenamento temporário em `/tmp` na Vercel.** Cadastros, notas, conversas e materiais de estudo podem desaparecer entre execuções ou instâncias; isso serve somente para demonstração e não é adequado para dados reais. Para persistência em produção, substitua `dados/usuarios.json` por um banco de dados persistente antes de publicar para usuários reais.
 
 ## Contas e dados
 
-Crie uma conta na tela de login → "Criar conta". Contas novas começam sem matérias nem notas preenchidas; você pode adicioná-las em **Minhas matérias**. No uso local, os dados ficam em `dados/usuarios.json`, que não deve ser compartilhado nem enviado ao GitHub. Ao entrar em contas antigas, a senha em texto simples é migrada para armazenamento protegido e as notas antigas de exemplo são descartadas para não aparecerem como dados reais.
+Crie uma conta na tela de login → "Criar conta". Contas novas começam sem matérias nem notas preenchidas; você pode adicioná-las em **Minhas matérias** ou pedir à Luna para fazê-lo. Conversas, notas, quizzes, flashcards e preferências ficam associados à conta em `dados/usuarios.json` no uso local; o histórico permanece até você excluir a conversa. Esse arquivo não deve ser compartilhado nem enviado ao GitHub. Ao entrar em contas antigas, a senha em texto simples é migrada para armazenamento protegido e as notas antigas de exemplo são descartadas para não aparecerem como dados reais.
 
 Use **Meu perfil** para alterar a senha ou excluir permanentemente a conta. A exclusão pede a senha e a confirmação explícita `EXCLUIR`.
 

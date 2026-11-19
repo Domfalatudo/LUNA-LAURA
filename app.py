@@ -3,18 +3,23 @@ app.py — Servidor Flask do sistema educacional Luna
 Execute: python app.py
 Acesse:  http://localhost:5000
 """
-from flask import (Flask, render_template, request,
+from flask import (Flask, abort, render_template, request,
                    session, redirect, url_for, jsonify, flash, get_flashed_messages)
 import json
 import os
 import re
 import secrets
 import unicodedata
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from dotenv import load_dotenv
 from werkzeug.security import check_password_hash, generate_password_hash
-from deepseek import DeepSeekError, deepseek_configurada, responder as responder_deepseek
+from groq import (
+    GroqError,
+    gerar_json as gerar_json_groq,
+    groq_configurada,
+    responder_com_ferramentas,
+)
 from luna import Luna
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -42,6 +47,146 @@ MATERIAS_PADRAO = {
     'ingles': {'nome': 'Inglês', 'icone': '🌐'},
 }
 
+FERRAMENTAS_ESTUDO = [
+    {
+        'type': 'function',
+        'function': {
+            'name': 'adicionar_materia',
+            'description': 'Adiciona uma matéria à lista pessoal do aluno quando ele pedir.',
+            'parameters': {
+                'type': 'object',
+                'properties': {'nome': {'type': 'string'}},
+                'required': ['nome'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'renomear_materia',
+            'description': 'Renomeia uma matéria existente quando o aluno pedir.',
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'materia': {'type': 'string', 'description': 'Nome atual exato'},
+                    'novo_nome': {'type': 'string'},
+                },
+                'required': ['materia', 'novo_nome'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'remover_materia',
+            'description': 'Remove uma matéria e suas notas somente se o aluno pedir explicitamente.',
+            'parameters': {
+                'type': 'object',
+                'properties': {'materia': {'type': 'string', 'description': 'Nome exato'}},
+                'required': ['materia'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'registrar_nota',
+            'description': 'Registra uma nota informada pelo aluno em uma matéria existente.',
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'materia': {'type': 'string', 'description': 'Nome exato da matéria'},
+                    'valor': {'type': 'number', 'description': 'Nota de 0 a 10'},
+                    'titulo': {'type': 'string', 'description': 'Nome da avaliação, se informado'},
+                    'data': {'type': 'string', 'description': 'Data ISO YYYY-MM-DD, se informada'},
+                },
+                'required': ['materia', 'valor'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'editar_nota',
+            'description': 'Edita uma nota existente. Use o índice exibido no contexto do aluno.',
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'materia': {'type': 'string'},
+                    'indice': {'type': 'integer', 'description': 'Índice da nota, começando em 1'},
+                    'valor': {'type': 'number'},
+                    'titulo': {'type': 'string'},
+                    'data': {'type': 'string', 'description': 'Data ISO YYYY-MM-DD'},
+                },
+                'required': ['materia', 'indice'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'remover_nota',
+            'description': 'Remove uma nota somente se o aluno pedir explicitamente.',
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'materia': {'type': 'string'},
+                    'indice': {'type': 'integer', 'description': 'Índice da nota, começando em 1'},
+                },
+                'required': ['materia', 'indice'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'criar_quiz',
+            'description': 'Gera e salva um quiz quando o aluno pedir.',
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'materia': {'type': 'string'},
+                    'assunto': {'type': 'string'},
+                    'quantidade': {'type': 'integer', 'description': 'De 3 a 10 questões'},
+                },
+                'required': ['materia', 'assunto', 'quantidade'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'criar_flashcards',
+            'description': 'Gera e salva flashcards quando o aluno pedir.',
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'materia': {'type': 'string'},
+                    'assunto': {'type': 'string'},
+                    'quantidade': {'type': 'integer', 'description': 'De 3 a 20 cartões'},
+                },
+                'required': ['materia', 'assunto', 'quantidade'],
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'registrar_sessao_estudo',
+            'description': 'Registra minutos de estudo que o aluno disse explicitamente ter feito.',
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'minutos': {'type': 'integer', 'description': 'De 5 a 240 minutos'},
+                    'assunto': {'type': 'string', 'description': 'O que estudou, se informado'},
+                },
+                'required': ['minutos'],
+            },
+        },
+    },
+]
+
+
 # ── Helpers de dados ─────────────────────────────────────────────────────
 def carregar_usuarios():
     if not USUARIOS_PATH.exists():
@@ -54,6 +199,68 @@ def salvar_usuarios(usuarios):
     with open(USUARIOS_PATH, 'w', encoding='utf-8') as f:
         json.dump(usuarios, f, ensure_ascii=False, indent=2)
 
+
+def salvar_aluno(chave, aluno):
+    usuarios = carregar_usuarios()
+    if chave not in usuarios:
+        raise RuntimeError('A conta do aluno não está mais disponível.')
+    usuarios[chave] = aluno
+    salvar_usuarios(usuarios)
+
+
+def data_hora_atual():
+    return datetime.now().astimezone().isoformat(timespec='seconds')
+
+
+def nova_conversa(mensagens=None):
+    criada = data_hora_atual()
+    primeiras = mensagens or []
+    titulo = next(
+        (item.get('texto', '').strip() for item in primeiras
+         if isinstance(item, dict) and item.get('tipo') == 'aluno'),
+        'Nova conversa',
+    )
+    return {
+        'id': secrets.token_urlsafe(12),
+        'titulo': (titulo[:54] + '…') if len(titulo) > 55 else (titulo or 'Nova conversa'),
+        'criada_em': criada,
+        'atualizada_em': criada,
+        'mensagens': primeiras,
+    }
+
+
+def conversas_do_aluno(aluno):
+    conversas = aluno.get('conversas')
+    if not isinstance(conversas, list):
+        conversas = []
+    validas = []
+    for conversa in conversas:
+        if (
+            isinstance(conversa, dict)
+            and isinstance(conversa.get('id'), str)
+            and isinstance(conversa.get('mensagens'), list)
+        ):
+            validas.append(conversa)
+    aluno['conversas'] = validas
+    return validas
+
+
+def preferencia_do_aluno(aluno):
+    padrao = {
+        'meta_diaria': 30,
+        'estilo_resposta': 'equilibrada',
+        'usar_exemplos': True,
+    }
+    valor = aluno.get('preferencias')
+    if not isinstance(valor, dict):
+        valor = {}
+    padrao['meta_diaria'] = valor.get('meta_diaria', 30)
+    if padrao['meta_diaria'] not in (15, 30, 45, 60):
+        padrao['meta_diaria'] = 30
+    if valor.get('estilo_resposta') in ('curta', 'equilibrada', 'detalhada'):
+        padrao['estilo_resposta'] = valor['estilo_resposta']
+    padrao['usar_exemplos'] = valor.get('usar_exemplos') is not False
+    return padrao
 
 def chave_usuario(nome):
     return re.sub(r'\s+', '_', nome.lower().strip())
@@ -121,6 +328,315 @@ def obter_materias_usuario(chave, usuario):
         usuarios[chave] = usuario
         salvar_usuarios(usuarios)
     return materias
+
+
+def resolver_materia(materias, nome):
+    if not isinstance(nome, str):
+        return None, None
+    texto = nome.strip()
+    slug = normalizar_slug(texto)
+    if slug in materias:
+        return slug, materias[slug]
+    for chave, materia in materias.items():
+        if materia['nome'].casefold() == texto.casefold():
+            return chave, materia
+    return None, None
+
+
+def _validar_data_nota(valor):
+    if valor in (None, ''):
+        return ''
+    if not isinstance(valor, str):
+        raise ValueError('A data precisa estar no formato AAAA-MM-DD.')
+    try:
+        date.fromisoformat(valor)
+    except ValueError:
+        raise ValueError('A data precisa estar no formato AAAA-MM-DD.') from None
+    return valor
+
+
+def _gerar_quiz(chave, aluno, slug, assunto, quantidade):
+    if isinstance(quantidade, bool) or not isinstance(quantidade, int) or not 3 <= quantidade <= 10:
+        raise ValueError('O quiz precisa ter de 3 a 10 questões.')
+    if not isinstance(assunto, str) or not assunto.strip() or len(assunto.strip()) > 120:
+        raise ValueError('Informe um assunto com até 120 caracteres.')
+    materia = normalizar_materias(aluno).get(slug)
+    if not materia:
+        raise ValueError('A matéria escolhida não existe.')
+    dados = gerar_json_groq(
+        f"Crie exatamente {quantidade} questões de múltipla escolha para a matéria "
+        f"{materia['nome']} sobre {assunto.strip()}. Adeque a linguagem à série "
+        f"{aluno.get('serie', 'escolar')}. Cada questão deve ter 4 opções, uma única "
+        "resposta correta indicada pelo índice inteiro de 0 a 3, e uma explicação curta. "
+        'Retorne JSON neste formato: {"titulo":"...", "questoes":['
+        '{"pergunta":"...", "opcoes":["...","...","...","..."], '
+        '"correta":0, "explicacao":"..."}]}'
+    )
+    questoes = dados.get('questoes')
+    if not isinstance(questoes, list) or len(questoes) != quantidade:
+        raise GroqError('A Groq não gerou a quantidade de questões pedida. Tente novamente.')
+    validadas = []
+    for questao in questoes:
+        if not isinstance(questao, dict):
+            raise GroqError('A Groq gerou uma questão inválida. Tente novamente.')
+        pergunta = questao.get('pergunta')
+        opcoes = questao.get('opcoes')
+        correta = questao.get('correta')
+        explicacao = questao.get('explicacao', '')
+        if (
+            not isinstance(pergunta, str) or not pergunta.strip()
+            or len(pergunta) > 500
+            or not isinstance(opcoes, list) or len(opcoes) != 4
+            or any(not isinstance(opcao, str) or not opcao.strip() or len(opcao) > 240 for opcao in opcoes)
+            or isinstance(correta, bool) or not isinstance(correta, int) or not 0 <= correta < 4
+            or not isinstance(explicacao, str) or len(explicacao) > 800
+        ):
+            raise GroqError('A Groq gerou uma questão inválida. Tente novamente.')
+        validadas.append({
+            'pergunta': pergunta.strip(),
+            'opcoes': [opcao.strip() for opcao in opcoes],
+            'correta': correta,
+            'explicacao': explicacao.strip(),
+        })
+    titulo = dados.get('titulo')
+    if not isinstance(titulo, str) or not titulo.strip():
+        titulo = f"Quiz de {materia['nome']}: {assunto.strip()}"
+    quiz = {
+        'id': secrets.token_urlsafe(12),
+        'titulo': titulo.strip()[:100],
+        'materia_slug': slug,
+        'materia': materia['nome'],
+        'assunto': assunto.strip(),
+        'criado_em': data_hora_atual(),
+        'questoes': validadas,
+    }
+    recursos_usuario(aluno, 'quizzes').insert(0, quiz)
+    salvar_aluno(chave, aluno)
+    return quiz
+
+
+def _gerar_flashcards(chave, aluno, slug, assunto, quantidade):
+    if isinstance(quantidade, bool) or not isinstance(quantidade, int) or not 3 <= quantidade <= 20:
+        raise ValueError('O conjunto precisa ter de 3 a 20 flashcards.')
+    if not isinstance(assunto, str) or not assunto.strip() or len(assunto.strip()) > 120:
+        raise ValueError('Informe um assunto com até 120 caracteres.')
+    materia = normalizar_materias(aluno).get(slug)
+    if not materia:
+        raise ValueError('A matéria escolhida não existe.')
+    dados = gerar_json_groq(
+        f"Crie exatamente {quantidade} flashcards de estudo para a matéria "
+        f"{materia['nome']} sobre {assunto.strip()}, adequados à série "
+        f"{aluno.get('serie', 'escolar')}. Cada cartão deve ter uma pergunta ou "
+        "conceito curto na frente e uma resposta correta e clara no verso. "
+        'Retorne JSON neste formato: {"titulo":"...", "cartoes":['
+        '{"frente":"...", "verso":"..."}]}'
+    )
+    cartoes = dados.get('cartoes')
+    if not isinstance(cartoes, list) or len(cartoes) != quantidade:
+        raise GroqError('A Groq não gerou a quantidade de flashcards pedida. Tente novamente.')
+    validados = []
+    for cartao in cartoes:
+        if not isinstance(cartao, dict):
+            raise GroqError('A Groq gerou um flashcard inválido. Tente novamente.')
+        frente, verso = cartao.get('frente'), cartao.get('verso')
+        if (
+            not isinstance(frente, str) or not frente.strip() or len(frente) > 300
+            or not isinstance(verso, str) or not verso.strip() or len(verso) > 800
+        ):
+            raise GroqError('A Groq gerou um flashcard inválido. Tente novamente.')
+        validados.append({'frente': frente.strip(), 'verso': verso.strip()})
+    titulo = dados.get('titulo')
+    if not isinstance(titulo, str) or not titulo.strip():
+        titulo = f"Flashcards de {materia['nome']}: {assunto.strip()}"
+    deck = {
+        'id': secrets.token_urlsafe(12),
+        'titulo': titulo.strip()[:100],
+        'materia_slug': slug,
+        'materia': materia['nome'],
+        'assunto': assunto.strip(),
+        'criado_em': data_hora_atual(),
+        'cartoes': validados,
+    }
+    recursos_usuario(aluno, 'flashcards').insert(0, deck)
+    salvar_aluno(chave, aluno)
+    return deck
+
+
+def contexto_aluno_para_ia(aluno):
+    materias = normalizar_materias(aluno)
+    resumo = []
+    for slug, materia in materias.items():
+        resumo.append({
+            'slug': slug,
+            'nome': materia['nome'],
+            'notas': [
+                {'indice': indice, **nota}
+                for indice, nota in enumerate(materia['notas'], start=1)
+            ],
+        })
+    return json.dumps({
+        'materias': resumo,
+        'meta_diaria_minutos': preferencia_do_aluno(aluno)['meta_diaria'],
+        'minutos_estudados_hoje': minutos_estudados_hoje(aluno),
+    }, ensure_ascii=False)
+
+
+def minutos_estudados_hoje(aluno):
+    hoje = date.today().isoformat()
+    sessoes = aluno.get('sessoes_estudo')
+    if not isinstance(sessoes, list):
+        return 0
+    return sum(
+        sessao.get('minutos', 0)
+        for sessao in sessoes
+        if isinstance(sessao, dict)
+        and isinstance(sessao.get('data'), str)
+        and sessao['data'][:10] == hoje
+        and isinstance(sessao.get('minutos'), int)
+        and not isinstance(sessao.get('minutos'), bool)
+    )
+
+
+def registrar_sessao_estudo(chave, aluno, minutos, assunto=''):
+    if isinstance(minutos, bool) or not isinstance(minutos, int) or not 5 <= minutos <= 240:
+        raise ValueError('A sessão deve ter entre 5 e 240 minutos.')
+    if not isinstance(assunto, str) or len(assunto.strip()) > 80:
+        raise ValueError('O assunto deve ter até 80 caracteres.')
+    sessoes = aluno.get('sessoes_estudo')
+    if not isinstance(sessoes, list):
+        sessoes = []
+    sessoes.append({
+        'minutos': minutos,
+        'assunto': assunto.strip(),
+        'data': data_hora_atual(),
+    })
+    aluno['sessoes_estudo'] = sessoes
+    salvar_aluno(chave, aluno)
+    return minutos_estudados_hoje(aluno)
+
+
+def executar_ferramenta_estudo(chave, aluno, nome, argumentos):
+    materias = normalizar_materias(aluno)
+    try:
+        if nome == 'registrar_sessao_estudo':
+            total = registrar_sessao_estudo(
+                chave, aluno, argumentos.get('minutos'), argumentos.get('assunto', '')
+            )
+            return {'ok': True, 'acao': nome, 'minutos_hoje': total}
+        if nome == 'adicionar_materia':
+            texto = argumentos.get('nome')
+            slug = normalizar_slug(texto) if isinstance(texto, str) else ''
+            if not isinstance(texto, str) or not texto.strip() or len(texto.strip()) > 40 or not slug:
+                return {'ok': False, 'erro': 'O nome da matéria precisa ter até 40 caracteres.'}
+            if len(materias) >= 30:
+                return {'ok': False, 'erro': 'O limite é de 30 matérias.'}
+            if slug in materias or any(m['nome'].casefold() == texto.strip().casefold() for m in materias.values()):
+                return {'ok': False, 'erro': 'Essa matéria já está cadastrada.'}
+            materias[slug] = {'nome': texto.strip(), 'notas': []}
+            aluno['materias'] = materias
+            salvar_aluno(chave, aluno)
+            return {'ok': True, 'acao': nome, 'materia': texto.strip()}
+
+        slug, materia = resolver_materia(materias, argumentos.get('materia'))
+        if nome == 'renomear_materia':
+            novo_nome = argumentos.get('novo_nome')
+            novo_slug = normalizar_slug(novo_nome) if isinstance(novo_nome, str) else ''
+            if not materia:
+                return {'ok': False, 'erro': 'Matéria não encontrada. Confira a lista atual.'}
+            if not isinstance(novo_nome, str) or not novo_nome.strip() or len(novo_nome.strip()) > 40 or not novo_slug:
+                return {'ok': False, 'erro': 'O novo nome precisa ter até 40 caracteres.'}
+            if novo_slug != slug and novo_slug in materias:
+                return {'ok': False, 'erro': 'Já existe uma matéria com esse nome.'}
+            del materias[slug]
+            materia['nome'] = novo_nome.strip()
+            materias[novo_slug] = materia
+            aluno['materias'] = materias
+            for colecao in ('quizzes', 'flashcards'):
+                for item in recursos_usuario(aluno, colecao):
+                    if item.get('materia_slug') == slug:
+                        item['materia_slug'] = novo_slug
+                        item['materia'] = novo_nome.strip()
+            salvar_aluno(chave, aluno)
+            return {'ok': True, 'acao': nome, 'materia': novo_nome.strip()}
+
+        if nome == 'remover_materia':
+            if not materia:
+                return {'ok': False, 'erro': 'Matéria não encontrada.'}
+            del materias[slug]
+            aluno['materias'] = materias
+            salvar_aluno(chave, aluno)
+            return {'ok': True, 'acao': nome, 'materia': materia['nome']}
+
+        if nome in ('registrar_nota', 'editar_nota', 'remover_nota'):
+            if not materia:
+                return {'ok': False, 'erro': 'Matéria não encontrada. Confira a lista atual.'}
+            if nome == 'registrar_nota':
+                valor = argumentos.get('valor')
+                titulo = argumentos.get('titulo', '')
+                data_texto = _validar_data_nota(argumentos.get('data', ''))
+                if isinstance(valor, bool) or not isinstance(valor, (int, float)) or not 0 <= valor <= 10:
+                    return {'ok': False, 'erro': 'A nota deve estar entre 0 e 10.'}
+                if not isinstance(titulo, str) or len(titulo.strip()) > 60:
+                    return {'ok': False, 'erro': 'O título da avaliação deve ter até 60 caracteres.'}
+                if len(materia['notas']) >= 50:
+                    return {'ok': False, 'erro': 'Essa matéria já tem 50 avaliações.'}
+                materia['notas'].append({
+                    'valor': float(valor),
+                    'titulo': titulo.strip(),
+                    'data': data_texto,
+                })
+            else:
+                indice = argumentos.get('indice')
+                if isinstance(indice, bool) or not isinstance(indice, int) or not 1 <= indice <= len(materia['notas']):
+                    return {'ok': False, 'erro': 'Índice de avaliação inválido.'}
+                nota = materia['notas'][indice - 1]
+                if nome == 'remover_nota':
+                    materia['notas'].pop(indice - 1)
+                else:
+                    valor = argumentos.get('valor')
+                    titulo = argumentos.get('titulo')
+                    data_texto = argumentos.get('data')
+                    if valor is not None:
+                        if isinstance(valor, bool) or not isinstance(valor, (int, float)) or not 0 <= valor <= 10:
+                            return {'ok': False, 'erro': 'A nota deve estar entre 0 e 10.'}
+                        nota['valor'] = float(valor)
+                    if titulo is not None:
+                        if not isinstance(titulo, str) or len(titulo.strip()) > 60:
+                            return {'ok': False, 'erro': 'O título da avaliação deve ter até 60 caracteres.'}
+                        nota['titulo'] = titulo.strip()
+                    if data_texto is not None:
+                        nota['data'] = _validar_data_nota(data_texto)
+                    if valor is None and titulo is None and data_texto is None:
+                        return {'ok': False, 'erro': 'Informe o que deve ser alterado na avaliação.'}
+            aluno['materias'] = materias
+            salvar_aluno(chave, aluno)
+            return {
+                'ok': True,
+                'acao': nome,
+                'materia': materia['nome'],
+                'nota': None if nome == 'remover_nota' else materia['notas'][-1 if nome == 'registrar_nota' else indice - 1],
+            }
+
+        if nome in ('criar_quiz', 'criar_flashcards'):
+            if not materia:
+                return {'ok': False, 'erro': 'Cadastre primeiro essa matéria em Minhas matérias.'}
+            assunto = argumentos.get('assunto')
+            quantidade = argumentos.get('quantidade')
+            recurso = (
+                _gerar_quiz(chave, aluno, slug, assunto, quantidade)
+                if nome == 'criar_quiz'
+                else _gerar_flashcards(chave, aluno, slug, assunto, quantidade)
+            )
+            tipo = 'quiz' if nome == 'criar_quiz' else 'flashcards'
+            return {
+                'ok': True,
+                'acao': nome,
+                'titulo': recurso['titulo'],
+                'url': f"/{tipo}/{recurso['id']}",
+            }
+    except ValueError as erro:
+        return {'ok': False, 'erro': str(erro)}
+    return {'ok': False, 'erro': 'Ação não reconhecida.'}
 
 
 def senha_valida(usuario, senha):
@@ -232,11 +748,27 @@ def logout():
     return redirect(url_for('login'))
 
 # ── Rotas principais ─────────────────────────────────────────────────────
-@app.route('/dashboard')
+@app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
     chave, aluno = usuario_atual()
     if not aluno:
         return redirect(url_for('login'))
+    if request.method == 'POST':
+        acao = request.form.get('acao')
+        try:
+            minutos = int(request.form.get('minutos', '0'))
+        except ValueError:
+            minutos = 0
+        assunto = request.form.get('assunto', '').strip()
+        if acao != 'registrar_sessao_estudo':
+            return ('Ação inválida.', 400)
+        try:
+            registrar_sessao_estudo(chave, aluno, minutos, assunto)
+        except ValueError as error:
+            flash(str(error), 'error')
+        else:
+            flash('Sessão de estudo registrada. Cada passo conta.', 'success')
+        return redirect(url_for('dashboard'))
     materias = obter_materias_usuario(chave, aluno)
     cards = []
     todas_notas = []
@@ -253,12 +785,19 @@ def dashboard():
             'quantidade': len(notas),
         })
     media_geral = sum(todas_notas) / len(todas_notas) if todas_notas else None
+    preferencias = preferencia_do_aluno(aluno)
+    minutos_hoje = minutos_estudados_hoje(aluno)
     return render_template(
         'dashboard.html',
         aluno=perfil_publico(aluno),
         materias=cards,
         media_geral=media_geral,
         total_notas=len(todas_notas),
+        preferencias=preferencias,
+        minutos_hoje=minutos_hoje,
+        progresso_meta=min(100, round(minutos_hoje / preferencias['meta_diaria'] * 100)),
+        quizzes_count=len(recursos_usuario(aluno, 'quizzes')),
+        flashcards_count=len(recursos_usuario(aluno, 'flashcards')),
     )
 
 
@@ -645,67 +1184,283 @@ def materia(nome_materia):
                            info=info,
                            conteudo=conteudo,
                            materias_info=MATERIAS_INFO,
-                           ia_ativa=deepseek_configurada())
+                           ia_ativa=groq_configurada())
+
+
+def recursos_usuario(aluno, colecao):
+    itens = aluno.get(colecao)
+    if not isinstance(itens, list):
+        itens = []
+    validos = [item for item in itens if isinstance(item, dict) and isinstance(item.get('id'), str)]
+    aluno[colecao] = validos
+    return validos
+
+
+@app.route('/quizzes', methods=['GET', 'POST'])
+def quizzes():
+    chave, aluno = usuario_atual()
+    if not aluno:
+        return redirect(url_for('login'))
+    erro = None
+    materias = obter_materias_usuario(chave, aluno)
+    if request.method == 'POST':
+        slug = request.form.get('materia', '')
+        assunto = request.form.get('assunto', '').strip()
+        try:
+            quantidade = int(request.form.get('quantidade', '5'))
+            if slug not in materias:
+                raise ValueError('Escolha uma matéria cadastrada.')
+            quiz = _gerar_quiz(chave, aluno, slug, assunto, quantidade)
+            return redirect(url_for('quiz_detail', quiz_id=quiz['id']))
+        except ValueError as error:
+            erro = str(error)
+        except GroqError as error:
+            erro = str(error)
+    return render_template(
+        'quizzes.html',
+        aluno=perfil_publico(aluno),
+        materias=[{'slug': slug, **item} for slug, item in materias.items()],
+        quizzes=recursos_usuario(aluno, 'quizzes'),
+        erro=erro,
+    )
+
+
+@app.route('/quizzes/<quiz_id>', methods=['GET', 'POST'])
+def quiz_detail(quiz_id):
+    chave, aluno = usuario_atual()
+    if not aluno:
+        return redirect(url_for('login'))
+    itens = recursos_usuario(aluno, 'quizzes')
+    quiz = next((item for item in itens if item['id'] == quiz_id), None)
+    if not quiz:
+        abort(404)
+    if request.method == 'POST':
+        aluno['quizzes'] = [item for item in itens if item['id'] != quiz_id]
+        salvar_aluno(chave, aluno)
+        return redirect(url_for('quizzes'))
+    return render_template('quiz_detail.html', aluno=perfil_publico(aluno), quiz=quiz)
+
+
+@app.route('/flashcards', methods=['GET', 'POST'])
+def flashcards():
+    chave, aluno = usuario_atual()
+    if not aluno:
+        return redirect(url_for('login'))
+    erro = None
+    materias = obter_materias_usuario(chave, aluno)
+    if request.method == 'POST':
+        slug = request.form.get('materia', '')
+        assunto = request.form.get('assunto', '').strip()
+        try:
+            quantidade = int(request.form.get('quantidade', '8'))
+            if slug not in materias:
+                raise ValueError('Escolha uma matéria cadastrada.')
+            deck = _gerar_flashcards(chave, aluno, slug, assunto, quantidade)
+            return redirect(url_for('flashcards_detail', deck_id=deck['id']))
+        except ValueError as error:
+            erro = str(error)
+        except GroqError as error:
+            erro = str(error)
+    return render_template(
+        'flashcards.html',
+        aluno=perfil_publico(aluno),
+        materias=[{'slug': slug, **item} for slug, item in materias.items()],
+        decks=recursos_usuario(aluno, 'flashcards'),
+        erro=erro,
+    )
+
+
+@app.route('/flashcards/<deck_id>', methods=['GET', 'POST'])
+def flashcards_detail(deck_id):
+    chave, aluno = usuario_atual()
+    if not aluno:
+        return redirect(url_for('login'))
+    itens = recursos_usuario(aluno, 'flashcards')
+    deck = next((item for item in itens if item['id'] == deck_id), None)
+    if not deck:
+        abort(404)
+    if request.method == 'POST':
+        aluno['flashcards'] = [item for item in itens if item['id'] != deck_id]
+        salvar_aluno(chave, aluno)
+        return redirect(url_for('flashcards'))
+    return render_template('flashcards_detail.html', aluno=perfil_publico(aluno), deck=deck)
+
+
+@app.route('/configuracoes', methods=['GET', 'POST'])
+def configuracoes():
+    chave, aluno = usuario_atual()
+    if not aluno:
+        return redirect(url_for('login'))
+    erro = None
+    sucesso = None
+    preferencias = preferencia_do_aluno(aluno)
+    if request.method == 'POST':
+        try:
+            meta = int(request.form.get('meta_diaria', '30'))
+        except ValueError:
+            meta = 0
+        estilo = request.form.get('estilo_resposta', '')
+        if meta not in (15, 30, 45, 60):
+            erro = 'Escolha uma meta diária entre 15 e 60 minutos.'
+        elif estilo not in ('curta', 'equilibrada', 'detalhada'):
+            erro = 'Escolha um estilo de resposta válido.'
+        else:
+            aluno['preferencias'] = {
+                'meta_diaria': meta,
+                'estilo_resposta': estilo,
+                'usar_exemplos': request.form.get('usar_exemplos') == 'on',
+            }
+            salvar_aluno(chave, aluno)
+            preferencias = preferencia_do_aluno(aluno)
+            sucesso = 'Preferências salvas.'
+    return render_template(
+        'configuracoes.html',
+        aluno=perfil_publico(aluno),
+        preferencias=preferencias,
+        erro=erro,
+        sucesso=sucesso,
+    )
+
 
 # ── Chat API ─────────────────────────────────────────────────────────────
 @app.route('/chat')
 def chat():
-    _, aluno = usuario_atual()
+    chave, aluno = usuario_atual()
     if not aluno:
         return redirect(url_for('login'))
-    if 'historico_chat' not in session:
-        session['historico_chat'] = []
+    conversas = conversas_do_aluno(aluno)
+    if not conversas:
+        legado = session.pop('historico_chat', [])
+        mensagens = [
+            item for item in legado
+            if isinstance(item, dict)
+            and item.get('tipo') in ('aluno', 'luna')
+            and isinstance(item.get('texto'), str)
+        ] if isinstance(legado, list) else []
+        conversas.append(nova_conversa(mensagens))
+    pedida = request.args.get('conversa')
+    ativa = next((item for item in conversas if item['id'] == pedida), None)
+    if not ativa:
+        ativa = next(
+            (item for item in conversas if item['id'] == aluno.get('conversa_ativa')),
+            conversas[-1],
+        )
+    aluno['conversa_ativa'] = ativa['id']
+    salvar_aluno(chave, aluno)
     luna = Luna(aluno['nome'], aluno.get('serie', ''))
-    boas_vindas = luna.mensagem_boas_vindas() if not session['historico_chat'] else None
+    conversas_ordenadas = sorted(
+        conversas, key=lambda item: item.get('atualizada_em', ''), reverse=True
+    )
     return render_template('chat.html',
                            aluno=perfil_publico(aluno),
-                           historico=session['historico_chat'],
-                           boas_vindas=boas_vindas,
-                           ia_ativa=deepseek_configurada())
+                           historico=ativa['mensagens'],
+                           conversas=conversas_ordenadas,
+                           conversa_ativa=ativa,
+                           boas_vindas=luna.mensagem_boas_vindas() if not ativa['mensagens'] else None,
+                           ia_ativa=groq_configurada())
+
+
+@app.route('/api/chat/conversas', methods=['POST'])
+def api_nova_conversa():
+    chave, aluno = usuario_atual()
+    if not aluno:
+        return jsonify({'erro': 'Não autenticado'}), 401
+    conversas = conversas_do_aluno(aluno)
+    conversa = nova_conversa()
+    conversas.append(conversa)
+    aluno['conversa_ativa'] = conversa['id']
+    salvar_aluno(chave, aluno)
+    return jsonify({'id': conversa['id']})
+
+
+@app.route('/api/chat/conversas/<conversa_id>', methods=['DELETE'])
+def api_excluir_conversa(conversa_id):
+    chave, aluno = usuario_atual()
+    if not aluno:
+        return jsonify({'erro': 'Não autenticado'}), 401
+    conversas = conversas_do_aluno(aluno)
+    restantes = [item for item in conversas if item['id'] != conversa_id]
+    if len(restantes) == len(conversas):
+        return jsonify({'erro': 'Conversa não encontrada.'}), 404
+    if not restantes:
+        restantes.append(nova_conversa())
+    aluno['conversas'] = restantes
+    if aluno.get('conversa_ativa') == conversa_id:
+        aluno['conversa_ativa'] = restantes[-1]['id']
+    salvar_aluno(chave, aluno)
+    return jsonify({'id': aluno['conversa_ativa']})
+
 
 @app.route('/api/chat', methods=['POST'])
 def api_chat():
-    _, aluno = usuario_atual()
+    chave, aluno = usuario_atual()
     if not aluno:
         return jsonify({'erro': 'Não autenticado'}), 401
-    dados = request.get_json()
+    dados = request.get_json(silent=True)
+    if not isinstance(dados, dict):
+        return jsonify({'erro': 'Envie uma mensagem válida.'}), 400
     mensagem = (dados or {}).get('mensagem', '').strip()
     materia_contexto = (dados or {}).get('materia', None)
     if not mensagem:
         return jsonify({'resposta': 'Me manda sua dúvida! 😊'})
     if len(mensagem) > 4000:
         return jsonify({'erro': 'A mensagem deve ter no máximo 4.000 caracteres.'}), 400
+    conversas = conversas_do_aluno(aluno)
+    conversa = next(
+        (item for item in conversas if item['id'] == aluno.get('conversa_ativa')),
+        None,
+    )
+    if conversa is None:
+        conversa = nova_conversa()
+        conversas.append(conversa)
+        aluno['conversa_ativa'] = conversa['id']
     luna = Luna(aluno['nome'], aluno.get('serie', ''))
-    if deepseek_configurada():
+    if groq_configurada():
         try:
-            resposta = responder_deepseek(
+            resposta = responder_com_ferramentas(
                 mensagem,
-                session.get('historico_chat', []),
+                conversa['mensagens'],
                 materia_contexto,
+                contexto_aluno_para_ia(aluno),
+                preferencia_do_aluno(aluno),
+                FERRAMENTAS_ESTUDO,
+                lambda nome, argumentos: executar_ferramenta_estudo(
+                    chave, aluno, nome, argumentos
+                ),
             )
-        except DeepSeekError as error:
-            app.logger.warning("Falha na resposta do DeepSeek: %s", error)
+        except GroqError as error:
+            app.logger.warning("Falha na resposta da Luna: %s", error)
             return jsonify({'erro': str(error)}), 502
     else:
         resposta = luna.responder(mensagem, materia_contexto)
-    if 'historico_chat' not in session:
-        session['historico_chat'] = []
-    historico = list(session['historico_chat'])
-    historico.append({'tipo': 'aluno', 'texto': mensagem})
-    historico.append({'tipo': 'luna',  'texto': resposta})
-    session['historico_chat'] = historico[-30:]
-    session.modified = True
-    return jsonify({'resposta': resposta})
+    agora = data_hora_atual()
+    conversa['mensagens'].append({'tipo': 'aluno', 'texto': mensagem, 'data': agora})
+    conversa['mensagens'].append({'tipo': 'luna', 'texto': resposta, 'data': agora})
+    if conversa['titulo'] == 'Nova conversa':
+        conversa['titulo'] = (mensagem[:54] + '…') if len(mensagem) > 55 else mensagem
+    conversa['atualizada_em'] = agora
+    salvar_aluno(chave, aluno)
+    return jsonify({'resposta': resposta, 'conversa_id': conversa['id']})
 
 @app.route('/api/limpar_chat', methods=['POST'])
 def limpar_chat():
-    session['historico_chat'] = []
-    session.modified = True
+    chave, aluno = usuario_atual()
+    if not aluno:
+        return jsonify({'erro': 'Não autenticado'}), 401
+    conversa = next(
+        (item for item in conversas_do_aluno(aluno)
+         if item['id'] == aluno.get('conversa_ativa')),
+        None,
+    )
+    if not conversa:
+        return jsonify({'erro': 'Conversa não encontrada.'}), 404
+    conversa['mensagens'] = []
+    conversa['titulo'] = 'Nova conversa'
+    conversa['atualizada_em'] = data_hora_atual()
+    salvar_aluno(chave, aluno)
     return jsonify({'ok': True})
 
 if __name__ == '__main__':
-    print("\n🌙 Luna — Sistema Educacional com IA")
     print("━" * 40)
     print("Acesse: http://localhost:5000")
-    print("Para parar: Ctrl+C\n")
     app.run(debug=True, port=5000)

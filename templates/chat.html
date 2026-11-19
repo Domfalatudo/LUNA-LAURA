@@ -3,79 +3,100 @@
 {% block body_class %}chat-page{% endblock %}
 
 {% block content %}
-<section class="chat-container" aria-label="Conversa com a Luna">
-
-  <!-- Header do chat -->
-  <div class="chat-header">
-    <a href="{{ url_for('dashboard') }}" class="back-link-chat" aria-label="Voltar ao início">←</a>
-    <div class="chat-header-info">
-      <div class="luna-avatar">L</div>
+<div class="chat-workspace">
+  <aside class="chat-sidebar" aria-label="Histórico de conversas">
+    <div class="chat-sidebar-heading">
       <div>
-        <strong>Luna</strong>
-        <span class="chat-status"><span class="status-indicator {% if ia_ativa %}status-connected{% else %}status-local{% endif %}"></span>{% if ia_ativa %}DeepSeek conectado{% else %}Assistente disponível{% endif %}</span>
+        <span class="eyebrow">SEU ESPAÇO</span>
+        <h2>Conversas</h2>
       </div>
+      <button class="new-conversation-button" id="new-conversation" type="button" aria-label="Nova conversa">＋</button>
     </div>
-    <span class="chat-header-note">Um passo de cada vez</span>
-    <button class="btn-clear-chat" onclick="limparChat()" title="Limpar conversa" aria-label="Limpar conversa">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-        <path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6"/>
-      </svg>
-    </button>
-  </div>
-
-  <!-- Mensagens -->
-  <div class="chat-msgs" id="chat-msgs">
-
-    {% if boas_vindas %}
-    <div class="msg-bubble luna">
-      <div class="luna-avatar-sm">L</div>
-      <div class="msg-content">
-        <div class="msg-text">{{ boas_vindas | replace('**', '') | e }}</div>
-        <span class="msg-time">agora</span>
+    <div class="conversation-list">
+      {% for conversa in conversas %}
+      <div class="conversation-item {% if conversa.id == conversa_ativa.id %}active{% endif %}">
+        <a href="{{ url_for('chat', conversa=conversa.id) }}" title="{{ conversa.titulo }}">
+          <strong>{{ conversa.titulo }}</strong>
+          <span>
+            {% if conversa.mensagens %}
+              {{ conversa.mensagens[-1].texto[:48] }}{% if conversa.mensagens[-1].texto|length > 48 %}…{% endif %}
+            {% else %}
+              Comece uma nova conversa
+            {% endif %}
+          </span>
+        </a>
+        <button type="button" class="delete-conversation" data-delete-conversation="{{ conversa.id }}" aria-label="Excluir conversa {{ conversa.titulo }}">×</button>
       </div>
+      {% endfor %}
     </div>
-    {% endif %}
-
-    {% for msg in historico %}
-    <div class="msg-bubble {{ msg.tipo }}">
-      {% if msg.tipo == 'luna' %}
-      <div class="luna-avatar-sm">L</div>
-      {% endif %}
-      <div class="msg-content">
-        <div class="msg-text">{{ msg.texto | e }}</div>
-      </section>
+    <div class="chat-sidebar-footer">
+      <span class="sidebar-privacy-mark">◉</span>
+      <span>Histórico salvo nesta conta até você excluir.</span>
     </div>
-    {% endfor %}
+  </aside>
 
-  </div>
-
-  <!-- Input -->
-  <div class="chat-input-area">
-    <div class="chat-input-row">
-      <input type="text" id="chat-input"
-             placeholder="Manda sua dúvida pra Luna..."
-             aria-label="Escreva sua mensagem para a Luna"
-             enterkeyhint="send"
-             onkeypress="if(event.key==='Enter') enviarMensagem()"
-             autocomplete="off">
-      <button class="btn-send" onclick="enviarMensagem()" aria-label="Enviar mensagem" title="Enviar mensagem">
-        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+  <section class="chat-container" aria-label="Conversa com a Luna">
+    <header class="chat-header">
+      <a href="{{ url_for('dashboard') }}" class="back-link-chat" aria-label="Voltar ao início">←</a>
+      <div class="chat-header-info">
+        <div class="luna-avatar">L</div>
+        <div>
+          <strong>Luna</strong>
+          <span class="chat-status"><span class="status-indicator {% if ia_ativa %}status-connected{% else %}status-local{% endif %}"></span>{% if ia_ativa %}Groq conectada{% else %}Assistente disponível{% endif %}</span>
+        </div>
+      </div>
+      <span class="chat-header-note" title="{{ conversa_ativa.titulo }}">{{ conversa_ativa.titulo }}</span>
+      <button class="btn-clear-chat" onclick="limparChat()" title="Limpar mensagens desta conversa" aria-label="Limpar conversa">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+          <path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6"/>
         </svg>
       </button>
-    </div>
-    {% if ia_ativa %}
-    <div class="chat-ia-aviso">As mensagens são enviadas ao DeepSeek para gerar respostas. Evite compartilhar dados pessoais.</div>
-    {% endif %}
-    <div class="chat-sugestoes">
-      <span class="sugestao-label">Sugestões:</span>
-      <button class="sugestao" onclick="usarSugestao(this)">O que é fração?</button>
-      <button class="sugestao" onclick="usarSugestao(this)">Explica crase</button>
-      <button class="sugestao" onclick="usarSugestao(this)">Me dá um exercício</button>
-      <button class="sugestao" onclick="usarSugestao(this)">O que é fotossíntese?</button>
-    </div>
-  </div>
+    </header>
 
+    <div class="chat-msgs" id="chat-msgs" aria-live="polite">
+      {% if boas_vindas %}
+      <div class="msg-bubble luna">
+        <div class="luna-avatar-sm">L</div>
+        <div class="msg-content"><div class="msg-text" data-markdown>{{ boas_vindas }}</div></div>
+      </div>
+      {% endif %}
+      {% for msg in historico %}
+      <div class="msg-bubble {{ msg.tipo }}">
+        {% if msg.tipo == 'luna' %}<div class="luna-avatar-sm">L</div>{% endif %}
+        <div class="msg-content">
+          <div class="msg-text" data-markdown>{{ msg.texto }}</div>
+          {% if msg.data %}<span class="msg-time">{{ msg.data[:16].replace('T', ' ') }}</span>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="chat-input-area">
+      <div class="chat-shortcuts">
+        <a href="{{ url_for('quizzes') }}">✧ Criar quiz</a>
+        <a href="{{ url_for('flashcards') }}">◈ Flashcards</a>
+        <a href="{{ url_for('notas') }}">＋ Matérias e notas</a>
+      </div>
+      <div class="chat-input-row">
+        <textarea id="chat-input" rows="1" maxlength="4000"
+                  placeholder="Pergunte, registre uma nota ou peça um material de estudo..."
+                  aria-label="Escreva sua mensagem para a Luna"></textarea>
+        <button class="btn-send" id="chat-send" onclick="enviarMensagem()" aria-label="Enviar mensagem" title="Enviar mensagem">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+      {% if ia_ativa %}
+      <div class="chat-ia-aviso">A Luna pode registrar matérias/notas e criar quizzes ou flashcards quando você pedir. As mensagens são enviadas à Groq.</div>
+      {% endif %}
+      <div class="chat-sugestoes">
+        <button class="sugestao" onclick="usarSugestao(this)">Registre uma nota</button>
+        <button class="sugestao" onclick="usarSugestao(this)">Crie um quiz para mim</button>
+        <button class="sugestao" onclick="usarSugestao(this)">Me ajude a montar um plano de estudos</button>
+      </div>
+    </div>
+  </section>
 </div>
 {% endblock %}
 

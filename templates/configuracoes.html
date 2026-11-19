@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Configurações — Luna{% endblock %}
+
+{% block content %}
+<div class="settings-page page-enter">
+  <header class="page-heading">
+    <span class="eyebrow">LUNA DO SEU JEITO</span>
+    <h1>Preferências de estudo</h1>
+    <p>Ajuste como a Luna responde e escolha uma meta diária que faça sentido para você.</p>
+  </header>
+  {% if erro %}<div class="alert-error" role="alert">{{ erro }}</div>{% endif %}
+  {% if sucesso %}<div class="alert-success" role="status">{{ sucesso }}</div>{% endif %}
+
+  <form method="post" class="settings-card preferences-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="preference-block">
+      <span class="preference-icon">◷</span>
+      <div class="preference-copy">
+        <h2>Meta diária de estudo</h2>
+        <p>Uma referência flexível para manter constância, sem cobrança.</p>
+      </div>
+      <label class="form-group">
+        <span class="sr-only">Meta diária</span>
+        <select name="meta_diaria">
+          {% for minutos in (15, 30, 45, 60) %}
+          <option value="{{ minutos }}" {% if preferencias.meta_diaria == minutos %}selected{% endif %}>{{ minutos }} minutos</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="preference-block">
+      <span class="preference-icon">✧</span>
+      <div class="preference-copy">
+        <h2>Estilo das respostas</h2>
+        <p>A Luna adapta o nível de detalhe nas próximas conversas.</p>
+      </div>
+      <label class="form-group">
+        <span class="sr-only">Estilo das respostas</span>
+        <select name="estilo_resposta">
+          <option value="curta" {% if preferencias.estilo_resposta == 'curta' %}selected{% endif %}>Diretas</option>
+          <option value="equilibrada" {% if preferencias.estilo_resposta == 'equilibrada' %}selected{% endif %}>Equilibradas</option>
+          <option value="detalhada" {% if preferencias.estilo_resposta == 'detalhada' %}selected{% endif %}>Passo a passo</option>
+        </select>
+      </label>
+    </div>
+    <label class="preference-toggle">
+      <span>
+        <strong>Incluir exemplos</strong>
+        <small>Ajude a conectar a matéria ao cotidiano.</small>
+      </span>
+      <input type="checkbox" name="usar_exemplos" {% if preferencias.usar_exemplos %}checked{% endif %}>
+    </label>
+    <button class="btn-primary" type="submit">Salvar preferências</button>
+  </form>
+</div>
+{% endblock %}
